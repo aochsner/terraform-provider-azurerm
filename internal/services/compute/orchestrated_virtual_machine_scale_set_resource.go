@@ -222,6 +222,12 @@ func resourceOrchestratedVirtualMachineScaleSet() *pluginsdk.Resource {
 				Optional: true,
 			},
 
+			"secure_boot_enabled": {
+				Type:     pluginsdk.TypeBool,
+				Optional: true,
+				ForceNew: true,
+			},
+
 			"source_image_id": {
 				Type:     pluginsdk.TypeString,
 				Optional: true,
@@ -265,6 +271,12 @@ func resourceOrchestratedVirtualMachineScaleSet() *pluginsdk.Resource {
 				Optional:     true,
 				Sensitive:    true,
 				ValidateFunc: validation.StringIsBase64,
+			},
+
+			"vtpm_enabled": {
+				Type:     pluginsdk.TypeBool,
+				Optional: true,
+				ForceNew: true,
 			},
 
 			"priority_mix": OrchestratedVirtualMachineScaleSetPriorityMixPolicySchema(),
@@ -582,9 +594,43 @@ func resourceOrchestratedVirtualMachineScaleSetCreate(d *pluginsdk.ResourceData,
 	}
 
 	if v, ok := d.GetOk("encryption_at_host_enabled"); ok {
-		virtualMachineProfile.SecurityProfile = &virtualmachinescalesets.SecurityProfile{
-			EncryptionAtHost: pointer.To(v.(bool)),
+		if virtualMachineProfile.SecurityProfile == nil {
+			virtualMachineProfile.SecurityProfile = &virtualmachinescalesets.SecurityProfile{}
 		}
+		virtualMachineProfile.SecurityProfile.EncryptionAtHost = pointer.To(v.(bool))
+	}
+
+	if v, ok := d.GetOk("secure_boot_enabled"); ok {
+		if virtualMachineProfile.SecurityProfile == nil {
+			virtualMachineProfile.SecurityProfile = &virtualmachinescalesets.SecurityProfile{}
+		}
+
+		if virtualMachineProfile.SecurityProfile.UefiSettings == nil {
+			virtualMachineProfile.SecurityProfile.UefiSettings = &virtualmachinescalesets.UefiSettings{}
+		}
+
+		secureboot := d.Get("secure_boot_enabled").(bool)
+		if secureboot {
+			virtualMachineProfile.SecurityProfile.SecurityType = pointer.To(virtualmachinescalesets.SecurityTypesTrustedLaunch)
+		}
+
+		virtualMachineProfile.SecurityProfile.UefiSettings.SecureBootEnabled = pointer.To(v.(bool))
+	}
+
+	if v, ok := d.GetOk("vtpm_enabled"); ok {
+		if virtualMachineProfile.SecurityProfile == nil {
+			virtualMachineProfile.SecurityProfile = &virtualmachinescalesets.SecurityProfile{}
+		}
+
+		if virtualMachineProfile.SecurityProfile.UefiSettings == nil {
+			virtualMachineProfile.SecurityProfile.UefiSettings = &virtualmachinescalesets.UefiSettings{}
+		}
+		vtpm := d.Get("vtpm_enabled").(bool)
+		if vtpm {
+			virtualMachineProfile.SecurityProfile.SecurityType = pointer.To(virtualmachinescalesets.SecurityTypesTrustedLaunch)
+		}
+
+		virtualMachineProfile.SecurityProfile.UefiSettings.VTpmEnabled = pointer.To(v.(bool))
 	}
 
 	if v, ok := d.GetOk("eviction_policy"); ok {
